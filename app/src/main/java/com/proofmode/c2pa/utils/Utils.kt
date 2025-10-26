@@ -106,7 +106,9 @@ fun getOrGenerateKeyPair(
 
 private fun saveKeyToPem(file: File, keyBytes: ByteArray, type: String) {
     val base64 = Base64.encodeToString(keyBytes, Base64.NO_WRAP)
-    val pem = "-----BEGIN $type-----\n$base64\n-----END $type-----"
+    // Split into 64-character lines for PEM format
+    val pemBody = base64.chunked(64).joinToString("\n")
+    val pem = "-----BEGIN $type-----\n$pemBody\n-----END $type-----"
     file.writeText(pem)
 }
 
