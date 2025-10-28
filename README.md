@@ -42,7 +42,8 @@ The application's logic is centered around a few key files that demonstrate a cl
 - The core of the application's logic, acting as the bridge between the UI and the data/domain layers.
 - Manages the camera's lifecycle via bindToCamera.- Handles user actions like takePhoto() and captureVideo().
 - Manages the recording state through the RecordingState sealed class, exposing it as a StateFlow for the UI to observe.
-- Fetches the device's location using getCurrentLocation() before a capture.- After a capture is saved, it triggers the signWithC2PA() function. 
+- Fetches the device's location using getCurrentLocation() before a capture.
+- After a capture is saved, it triggers the signWithC2PA() function. 
 
 ### 3. C2PA Signing Logic (/c2pa)
 
