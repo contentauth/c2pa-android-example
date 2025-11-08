@@ -1,12 +1,15 @@
 [versions]
 accompanistPermissions = "0.37.3"
 agp = "8.11.2"
+bcprovJdk18on = "1.82"
 c2pa = "0.0.7"
 cameraxVersion = "1.5.1"
 coil = "2.2.2"
 coilCompose = "2.7.0"
 coilVideo = "2.7.0"
 constraintlayoutCompose = "1.1.1"
+datastorePreferences = "1.1.7"
+exifinterface = "1.4.1"
 kotlin = "2.2.20"
 ksp = "2.2.20-2.0.4"
 coreKtx = "1.17.0"
@@ -36,9 +39,13 @@ androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", versi
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "cameraxVersion" }
 androidx-constraintlayout-compose = { module = "androidx.constraintlayout:constraintlayout-compose", version.ref = "constraintlayoutCompose" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
+androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
+bcpkix-jdk18on = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bcprovJdk18on" }
+bcprov-jdk18on = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bcprovJdk18on" }
 c2pa = { module = "org.contentauth:c2pa", version.ref = "c2pa" }
 coil = { module = "io.coil-kt:coil", version.ref = "coil" }
 coil-kt-coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }

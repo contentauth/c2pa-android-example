@@ -24,6 +24,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.proofmode.c2pa.c2pa.data.Media
 import com.proofmode.c2pa.c2pa.signWithC2PA
+import com.proofmode.c2pa.c2pa_signing.C2PAManager
 import com.proofmode.c2pa.utils.Constants
 import com.proofmode.c2pa.utils.getCurrentLocation
 import com.proofmode.c2pa.utils.getMediaFlow
@@ -43,7 +44,9 @@ import java.util.concurrent.Executors
 import javax.inject.Inject
 
 @HiltViewModel
-class CameraViewModel @Inject constructor(@ApplicationContext private val context: Context) : ViewModel() {
+class CameraViewModel @Inject constructor(@ApplicationContext private val context: Context,
+    private val c2paManager: C2PAManager
+) : ViewModel() {
 
     private val outputDirectory = Constants.outputDirectory
     private val _surfaceRequest = MutableStateFlow<SurfaceRequest?>(null)
@@ -168,12 +171,9 @@ class CameraViewModel @Inject constructor(@ApplicationContext private val contex
                 override fun onImageSaved(output: ImageCapture.OutputFileResults){
                     // sign with C2PA
                     viewModelScope.launch {
-                        signWithC2PA(
-                            context = context,
-                            uri = output.savedUri!!,
-                            fileFormat = "image/jpeg",
-                            location = currentLocation
-                        )
+                        output.savedUri?.let {
+                            c2paManager.signMediaFile(it, "image/jpeg")
+                        }
                         // Reload the files to get the latest thumbnail
                         loadFiles()
                     }
@@ -238,12 +238,7 @@ class CameraViewModel @Inject constructor(@ApplicationContext private val contex
                         if (!recordEvent.hasError()) {
                             _recordingState.update { RecordingState.Finalized(recordEvent.outputResults.outputUri) }
                             viewModelScope.launch {
-                                signWithC2PA(
-                                    context = context,
-                                    uri = recordEvent.outputResults.outputUri,
-                                    fileFormat = "video/mp4",
-                                    location = location
-                                )
+                                c2paManager.signMediaFile(recordEvent.outputResults.outputUri,"video/mp4")
                                 // Reload the files to get the latest thumbnail
                                 loadFiles()
                             }

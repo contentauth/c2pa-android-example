@@ -9,6 +9,9 @@ pluginManagement {
         }
         mavenCentral()
         gradlePluginPortal()
+        flatDir {
+            dirs("libs")
+        }
     }
 }
 dependencyResolutionManagement {
@@ -22,6 +25,9 @@ dependencyResolutionManagement {
                 username = "ngengesenior"
                 password = System.getenv("GITHUB_TOKEN")
             }
+        }
+        flatDir {
+            dirs("app/libs")
         }
     }
 }

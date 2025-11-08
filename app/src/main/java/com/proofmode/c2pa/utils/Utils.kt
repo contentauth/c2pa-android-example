@@ -9,6 +9,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.google.android.gms.location.LocationServices
@@ -24,13 +26,21 @@ import java.io.File
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 import android.util.Base64
+import androidx.compose.runtime.key
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder
+import org.bouncycastle.util.io.pem.PemObject
+import org.contentauth.c2pa.Signer
 import java.security.KeyFactory
+import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.PublicKey
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
+import java.util.Date
+import javax.security.auth.x500.X500Principal
 
 /*fun generateOrGetKeyPair(alias: String): KeyPair {
     val keyStore = KeyStore.getInstance("AndroidKeyStore")
@@ -75,7 +85,7 @@ import java.security.spec.X509EncodedKeySpec
     val publicKey = keyStore.getCertificate(alias).publicKey
     return KeyPair(publicKey, privateKey)
 }*/
-
+const val ANDROID_KEYSTORE = "AndroidKeyStore"
 
 
 fun getOrGenerateKeyPair(
@@ -160,6 +170,49 @@ fun certificatePEMFromKeyPair(keyPair: KeyPair):  String? {
     }
 }
 
+
+
+private fun createKeystoreKey(alias: String, useHardware: Boolean = false) {
+    val keyPairGenerator =
+        KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, ANDROID_KEYSTORE)
+
+    val paramSpec =
+        KeyGenParameterSpec.Builder(
+            alias,
+            KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY,
+        )
+            .apply {
+                setDigests(KeyProperties.DIGEST_SHA256)
+                setAlgorithmParameterSpec(
+                    java.security.spec.ECGenParameterSpec("secp256r1"),
+                )
+
+                if (useHardware) {
+                    // Request hardware backing (StrongBox if available, TEE otherwise)
+                    if (android.os.Build.VERSION.SDK_INT >=
+                        android.os.Build.VERSION_CODES.P
+                    ) {
+                        setIsStrongBoxBacked(true)
+                    }
+                }
+
+                // Self-signed certificate validity
+                setCertificateSubject(
+                    X500Principal("CN=C2PA Android User, O=C2PA Example, C=US"),
+                )
+                setCertificateSerialNumber(
+                    java.math.BigInteger.valueOf(System.currentTimeMillis()),
+                )
+                setCertificateNotBefore(Date())
+                setCertificateNotAfter(
+                    Date(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000),
+                )
+            }
+            .build()
+
+    keyPairGenerator.initialize(paramSpec)
+    keyPairGenerator.generateKeyPair()
+}
 
 suspend fun getCurrentLocation(context: Context): Location? {
     val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
@@ -299,4 +352,19 @@ object Constants {
     }
 
     const val KEY_FILES_DIR = "key_files_dir"
+}
+
+
+fun generateCSr(keyPair: KeyPair) {
+    val csrBuilder = JcaPKCS10CertificationRequestBuilder(
+        X500Principal("CN=ProofMode C2PA Demo"),
+        keyPair.public
+    )
+
+    val signer = JcaContentSignerBuilder("SHA256withRSA")
+        .build(keyPair.private)
+    val csr = csrBuilder.build(signer)
+
+    val csrPem = PemObject("CERTIFICATE REQUEST", csr.encoded)
+
 }
