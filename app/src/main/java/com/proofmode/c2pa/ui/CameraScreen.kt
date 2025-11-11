@@ -12,9 +12,11 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Camera
+import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.PlayArrow
@@ -43,11 +46,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -86,17 +92,18 @@ fun CameraScreen(viewModel: CameraViewModel,modifier: Modifier = Modifier,
         it.status.isGranted
     }
 
-    Scaffold(modifier = modifier) {
-        Box(modifier = Modifier.padding(it)) {
+    Scaffold(modifier = modifier) { paddingValues ->
+
             when {
                 areRequiredPermissionsGranted -> {
-                    CameraCaptureScreen(viewModel, onNavigateToPreview = onNavigateToPreview)
+                    CameraCaptureScreen(viewModel, onNavigateToPreview = onNavigateToPreview, paddingValues = paddingValues)
                 }
 
                 else -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
+                            .padding(paddingValues)
                             .padding(16.dp),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -113,12 +120,13 @@ fun CameraScreen(viewModel: CameraViewModel,modifier: Modifier = Modifier,
                     }
                 }
             }
-        }
+
     }
 }
 
 @Composable
-private fun CameraCaptureScreen(viewModel: CameraViewModel, onNavigateToPreview: () -> Unit = {}) {
+private fun CameraCaptureScreen(viewModel: CameraViewModel, onNavigateToPreview: () -> Unit = {},
+                                paddingValues: PaddingValues) {
     val previewUri by viewModel.thumbPreviewUri.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val recordingState by viewModel.recordingState.collectAsStateWithLifecycle()
@@ -128,11 +136,33 @@ private fun CameraCaptureScreen(viewModel: CameraViewModel, onNavigateToPreview:
         viewModel.bindToCamera(lifecycleOwner)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()
+        .padding(paddingValues)
+    ) {
         CameraPreview(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.matchParentSize()
+                .pointerInput(Unit){
+                    detectTapGestures(onDoubleTap = {
+                        viewModel.flipCamera()
+                    }, onTap = {
+
+                    })
+                }
+            ,
             surfaceRequest = surfaceRequest
         )
+
+        IconButton(onClick = {
+            viewModel.flipCamera()
+        },
+            modifier = Modifier.align(Alignment.TopEnd)
+                .padding(horizontal = 64.dp)
+        ) {
+            Icon(Icons.Default.Cameraswitch,contentDescription = stringResource(R.string.switch_camera),
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.onPrimary
+            )
+        }
 
         Row(
             modifier = Modifier
@@ -206,7 +236,8 @@ private fun CameraCaptureScreen(viewModel: CameraViewModel, onNavigateToPreview:
 
             AnimatedVisibility(visible = recordingState is RecordingState.Finalized || recordingState is RecordingState.Idle) {
 
-                Box(modifier = Modifier.size(48.dp)
+                Box(modifier = Modifier
+                    .size(48.dp)
                     .background(Color(0xFF444444), CircleShape)
                     .clip(CircleShape)
                     .border(

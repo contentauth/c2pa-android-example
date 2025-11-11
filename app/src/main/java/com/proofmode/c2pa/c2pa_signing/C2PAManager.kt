@@ -1,5 +1,4 @@
 package com.proofmode.c2pa.c2pa_signing
-
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -10,7 +9,6 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.security.keystore.WrappedKeyEntry
 import android.util.Base64
-import com.proofmode.c2pa.utils.getCurrentLocation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext

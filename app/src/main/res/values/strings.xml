@@ -16,4 +16,5 @@
     <string name="pause_recording">Pause Recording</string>
     <string name="resume_recording">Resume Recording</string>
     <string name="stop_recording">Stop Recording</string>
+    <string name="switch_camera">Switch Camera</string>
 </resources>

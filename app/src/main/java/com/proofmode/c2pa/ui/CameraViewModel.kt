@@ -6,10 +6,14 @@ import android.content.Context
 import android.location.Location
 import android.os.Build
 import android.provider.MediaStore
+import androidx.camera.core.Camera
+import androidx.camera.core.CameraControl
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
+import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.core.SurfaceRequest
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
@@ -18,6 +22,7 @@ import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
 import androidx.camera.video.VideoRecordEvent
+import androidx.compose.ui.geometry.Offset
 import androidx.core.content.PermissionChecker
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
@@ -43,7 +48,8 @@ import java.util.concurrent.Executors
 import javax.inject.Inject
 
 @HiltViewModel
-class CameraViewModel @Inject constructor(@ApplicationContext private val context: Context,
+class CameraViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val c2paManager: C2PAManager
 ) : ViewModel() {
 
@@ -51,17 +57,28 @@ class CameraViewModel @Inject constructor(@ApplicationContext private val contex
     private val _surfaceRequest = MutableStateFlow<SurfaceRequest?>(null)
     val surfaceRequest: StateFlow<SurfaceRequest?> = _surfaceRequest
 
-    // Video recording state
     private var recording: Recording? = null
 
     private val _recordingState = MutableStateFlow<RecordingState>(RecordingState.Idle)
     val recordingState: StateFlow<RecordingState> = _recordingState
 
+    private val _cameraSelector = MutableStateFlow(CameraSelector.DEFAULT_BACK_CAMERA)
+    val cameraSelector: StateFlow<CameraSelector> = _cameraSelector
+
+    private var cameraProvider: ProcessCameraProvider? = null
+    private var lifecycleOwner: LifecycleOwner? = null
+    private var surfaceOrientedMeteringPointFactory: SurfaceOrientedMeteringPointFactory? = null
+
     private val cameraPreviewUseCase = Preview.Builder().build().apply {
         setSurfaceProvider { newSurfaceRequest ->
             _surfaceRequest.update { newSurfaceRequest }
+            surfaceOrientedMeteringPointFactory = SurfaceOrientedMeteringPointFactory(
+                newSurfaceRequest.resolution.width.toFloat(),
+                newSurfaceRequest.resolution.height.toFloat())
         }
     }
+    private var camera: Camera? = null
+
 
     private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
@@ -96,84 +113,81 @@ class CameraViewModel @Inject constructor(@ApplicationContext private val contex
     suspend fun bindToCamera(
         lifecycleOwner: LifecycleOwner,
     ) {
-        val cameraProvider = ProcessCameraProvider.awaitInstance(context)
-
+        this.lifecycleOwner = lifecycleOwner
+        this.cameraProvider = ProcessCameraProvider.awaitInstance(context)
+        rebindUseCases()
         try {
-            cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
-                lifecycleOwner,
-                CameraSelector.DEFAULT_BACK_CAMERA,
+            awaitCancellation()
+        } finally {
+            cameraProvider?.unbindAll()
+        }
+    }
+
+    private fun rebindUseCases() {
+        val provider = cameraProvider ?: return
+        val owner = lifecycleOwner ?: return
+        try {
+            provider.unbindAll()
+            camera = provider.bindToLifecycle(
+                owner,
+                cameraSelector.value,
                 cameraPreviewUseCase,
                 imageCaptureUseCase,
                 videoCaptureUseCase
             )
-            awaitCancellation()
-        } finally {
-            cameraProvider.unbindAll()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to rebind camera use cases")
         }
     }
 
+    fun flipCamera() {
+        _cameraSelector.update {
+            if (it == CameraSelector.DEFAULT_BACK_CAMERA) {
+                CameraSelector.DEFAULT_FRONT_CAMERA
+            } else {
+                CameraSelector.DEFAULT_BACK_CAMERA
+            }
+        }
+        rebindUseCases()
+    }
+
     fun takePhoto() {
-        // Get a stable reference of the modifiable image capture use case
-        val imageCapture = imageCaptureUseCase ?: return
+        val imageCapture = imageCaptureUseCase
         var currentLocation: Location? = null
         viewModelScope.launch {
             currentLocation = getCurrentLocation(context)
-
             Timber.d("takePhoto: $currentLocation")
         }
 
-        // Create time stamped name and MediaStore entry.
-
-        // Create output options object which contains file + metadata
         val outputOptions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, System.currentTimeMillis())
                 put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
                 put(MediaStore.MediaColumns.RELATIVE_PATH, outputDirectory)
             }
-
-            val contentResolver = context.contentResolver
-
-            // Create the output uri
-            val contentUri =
-                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-
-            ImageCapture.OutputFileOptions.Builder(contentResolver, contentUri, contentValues)
+            ImageCapture.OutputFileOptions.Builder(context.contentResolver, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
         } else {
-
             File(outputDirectory).mkdirs()
-            val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
-                .format(System.currentTimeMillis())
+            val name = generateName()
             val fileMedia = File(outputDirectory, "$name.jpg")
             ImageCapture.OutputFileOptions.Builder(fileMedia)
-        }
-            .apply {
-                setMetadata(
-                    ImageCapture.Metadata()
-                    .apply {
-                        location = currentLocation
-                    }
-                )
-            }
-            .build()
+        }.apply {
+            setMetadata(ImageCapture.Metadata().apply { location = currentLocation })
+        }.build()
 
-        // Set up image capture listener, which is triggered after photo has
-        // been taken
         imageCapture.takePicture(
             outputOptions,
             cameraExecutor,
             object : ImageCapture.OnImageSavedCallback {
                 override fun onError(exc: ImageCaptureException) {
+                    Timber.e(exc)
                 }
 
-                override fun onImageSaved(output: ImageCapture.OutputFileResults){
-                    // sign with C2PA
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     viewModelScope.launch {
                         output.savedUri?.let {
                             c2paManager.signMediaFile(it, "image/jpeg", location = currentLocation)
                         }
-                        // Reload the files to get the latest thumbnail
                         loadFiles()
                     }
                 }
@@ -182,28 +196,27 @@ class CameraViewModel @Inject constructor(@ApplicationContext private val contex
     }
 
     fun captureVideo() {
-        val videoCapture = this.videoCaptureUseCase ?: return
+        val videoCapture = this.videoCaptureUseCase
         var location: Location? = null
         viewModelScope.launch {
             location = getCurrentLocation(context)
         }
+
         val curRecording = recording
         if (curRecording != null) {
-            // Stop the current recording session.
             curRecording.stop()
             recording = null
             _recordingState.update { RecordingState.Idle }
             return
         }
 
-        // create and start a new recording session
-        val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
-            .format(System.currentTimeMillis())
+        val name = generateName()
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
             put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
-            put(MediaStore.Video.Media.RELATIVE_PATH, outputDirectory)
-
+            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+                put(MediaStore.Video.Media.RELATIVE_PATH, outputDirectory)
+            }
         }
 
         val mediaStoreOutputOptions = MediaStoreOutputOptions
@@ -211,34 +224,25 @@ class CameraViewModel @Inject constructor(@ApplicationContext private val contex
             .setLocation(location)
             .setContentValues(contentValues)
             .build()
+
         recording = videoCapture.output
             .prepareRecording(context, mediaStoreOutputOptions)
             .apply {
-                if (PermissionChecker.checkSelfPermission(context,
-                        Manifest.permission.RECORD_AUDIO) ==
-                    PermissionChecker.PERMISSION_GRANTED)
-                {
+                if (PermissionChecker.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PermissionChecker.PERMISSION_GRANTED) {
                     withAudioEnabled()
-
                 }
             }
+            .asPersistentRecording() // persist recording
             .start(cameraExecutor) { recordEvent ->
-                when(recordEvent) {
-                    is VideoRecordEvent.Start -> {
-                        _recordingState.update { RecordingState.Recording }
-                    }
-                    is VideoRecordEvent.Pause -> {
-                        _recordingState.update { RecordingState.Paused }
-                    }
-                    is VideoRecordEvent.Resume -> {
-                        _recordingState.update { RecordingState.Recording }
-                    }
+                when (recordEvent) {
+                    is VideoRecordEvent.Start -> _recordingState.update { RecordingState.Recording }
+                    is VideoRecordEvent.Pause -> _recordingState.update { RecordingState.Paused }
+                    is VideoRecordEvent.Resume -> _recordingState.update { RecordingState.Recording }
                     is VideoRecordEvent.Finalize -> {
                         if (!recordEvent.hasError()) {
                             _recordingState.update { RecordingState.Finalized(recordEvent.outputResults.outputUri) }
                             viewModelScope.launch {
-                                c2paManager.signMediaFile(recordEvent.outputResults.outputUri,"video/mp4", location = location)
-                                // Reload the files to get the latest thumbnail
+                                c2paManager.signMediaFile(recordEvent.outputResults.outputUri, "video/mp4", location = location)
                                 loadFiles()
                             }
                         } else {
@@ -251,6 +255,19 @@ class CameraViewModel @Inject constructor(@ApplicationContext private val contex
             }
     }
 
+    fun tapToFocus(tapCoordinates: Offset) {
+        val point = surfaceOrientedMeteringPointFactory?.createPoint(tapCoordinates.x,tapCoordinates.y)
+        if (point != null) {
+            val meteringAction = FocusMeteringAction.Builder(point).build()
+            if (camera?.cameraInfo?.isFocusMeteringSupported(meteringAction) == true){
+                camera?.cameraControl?.startFocusAndMetering(meteringAction)
+            }
+
+        }
+
+    }
+
+
     fun pauseRecording() {
         recording?.pause()
     }
@@ -261,6 +278,11 @@ class CameraViewModel @Inject constructor(@ApplicationContext private val contex
 
     override fun onCleared() {
         super.onCleared()
+        recording?.stop()
+        recording?.close()
+        cameraProvider?.unbindAll()
         cameraExecutor.shutdown()
     }
+
+    private fun generateName() = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US).format(System.currentTimeMillis())
 }
