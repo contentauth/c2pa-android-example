@@ -552,7 +552,9 @@ class C2PAManager @Inject constructor (private val context: Context, private val
         //   mb.addThumbnail(Thumbnail(C2PAFormats.JPEG, thumbnailId))
 
         val sAgent = SoftwareAgent(appLabel, appVersion, Build.PRODUCT)
-        mb.addAssertion(aiTrainingAssertion.label,Json.encodeToString(aiTrainingAssertion.data))
+        val prettyJson = Json { prettyPrint = true }
+
+        mb.addAssertion(aiTrainingAssertion.label,prettyJson.encodeToString(aiTrainingAssertion.data))
 
         if (isDirectCapture)
         {
