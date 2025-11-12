@@ -127,7 +127,6 @@ fun ImagePreview(modifier: Modifier,media: Media){
             val imageView = ImageView(context).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
-                //setImageBitmap(getVideoThumbnail(context = context, videoUri = mediaItems[it].uri, size = ThumbSize.LARGE))
             }
             imageView.load(media.uri) {
                 if (media.isVideo) {

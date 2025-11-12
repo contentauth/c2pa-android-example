@@ -118,10 +118,19 @@ class C2PAManager @Inject constructor (private val context: Context, private val
         try {
             // Get current signing mode
             val signingMode = preferencesManager.signingMode.first()
+            val name = preferencesManager.userName.first()?:""
+            val email = preferencesManager.userEmail.first()?:""
+            val creatorBuilder = StringBuilder()
+            if (name.isNotBlank()) creatorBuilder.append(name)
+            if (email.isNotBlank()) {
+                if (creatorBuilder.isNotBlank()) creatorBuilder.append(", ")
+                creatorBuilder.append(email)
+            }
+
+            val creator = if (!creatorBuilder.isBlank()) creatorBuilder.toString() else "proofmode-test@email.com"
 
             // Create manifest JSON
-            val manifestJSON = createManifestJSON(context, "proofmode-test@email.com", uri.lastPathSegment ?: "media", contentType, location, true)
-            Timber.tag(TAG).d("Media manifest file:\n\n$manifestJSON")
+            val manifestJSON = createManifestJSON(context, "info@proofmode.org", uri.lastPathSegment ?: "media", contentType, location, true)
 
             // Create appropriate signer based on mode
             if (!::defaultSigner.isInitialized)
@@ -209,8 +218,6 @@ class C2PAManager @Inject constructor (private val context: Context, private val
         keyStore.load(null)
 
         if (!keyStore.containsAlias(alias)) {
-            Timber.tag(TAG).d("Creating new hardware-backed key with StrongBox if available")
-
             // Create StrongBox config
             val config = StrongBoxSigner.Config(keyTag = alias, requireUserAuthentication = false)
 
@@ -539,7 +546,6 @@ class C2PAManager @Inject constructor (private val context: Context, private val
         mb.claimGenerator(appLabel, version = appVersion)
         mb.timestampAuthorityUrl(TimestampAuthorities.DIGICERT)
       //  mb.timestampAuthorityUrl(TSA_SSL_COM)
-
         mb.title(fileName)
         mb.format(contentType)
         //   mb.addThumbnail(Thumbnail(C2PAFormats.JPEG, thumbnailId))
@@ -562,7 +568,7 @@ class C2PAManager @Inject constructor (private val context: Context, private val
             title = fileName,
             format = C2PAFormats.JPEG,
             relationship = C2PARelationships.PARENT_OF,
-            //   thumbnail = Thumbnail(C2PAFormats.JPEG, thumbnailId)
+            //thumbnail = Thumbnail(C2PAFormats.JPEG, thumbnailId)
         )
 
         mb.addIngredient(ingredient)

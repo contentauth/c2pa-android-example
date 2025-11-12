@@ -40,6 +40,9 @@ class PreferencesManager(private val context: Context): IPreferencesManager {
         val SOFTWARE_CERT_KEY = stringPreferencesKey("software_cert")
         val SOFTWARE_KEY_KEY = stringPreferencesKey("software_key")
         val CUSTOM_KEY_HASH = stringPreferencesKey("custom_key_hash")
+        val USER_NAME_KEY = stringPreferencesKey("user_name")
+        val USER_EMAIL_KEY = stringPreferencesKey("user_email")
+        val LOCATION_SHARING_KEY = stringPreferencesKey("location_sharing")
     }
 
     override val signingMode: Flow<SigningMode> =
@@ -114,6 +117,31 @@ class PreferencesManager(private val context: Context): IPreferencesManager {
     override suspend fun setCustomKeyHash(hash: String) {
         context.dataStore.edit { preferences -> preferences[CUSTOM_KEY_HASH] = hash }
     }
+
+    override val userName: Flow<String?> =
+        context.dataStore.data.map { preferences -> preferences[USER_NAME_KEY] }
+
+    override suspend fun setUserName(name: String) {
+        context.dataStore.edit { preferences -> preferences[USER_NAME_KEY] = name }
+    }
+
+    override val userEmail: Flow<String?> =
+        context.dataStore.data.map { preferences -> preferences[USER_EMAIL_KEY] }
+
+    override suspend fun setUserEmail(email: String) {
+        context.dataStore.edit { preferences -> preferences[USER_EMAIL_KEY] = email }
+    }
+
+    override val locationSharing: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[LOCATION_SHARING_KEY]?.toBoolean() ?: false
+    }
+
+
+    override suspend fun setLocationSharing(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[LOCATION_SHARING_KEY] = enabled.toString()
+        }
+    }
 }
 
 
@@ -139,5 +167,11 @@ interface IPreferencesManager {
     suspend fun setSoftwareCertificate(cert: String)
     suspend fun setSoftwarePrivateKey(key: String)
     suspend fun setCustomKeyHash(hash: String)
+    val userName: Flow<String?>
+    suspend fun setUserName(name: String)
+    val userEmail: Flow<String?>
+    suspend fun setUserEmail(email: String)
+    val locationSharing: Flow<Boolean>
+    suspend fun setLocationSharing(enabled: Boolean)
 }
 

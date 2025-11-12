@@ -8,9 +8,11 @@ import androidx.compose.runtime.Composable
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.dialog
 import androidx.navigation.compose.rememberNavController
 import com.proofmode.c2pa.ui.theme.ProofmodeC2paTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.serialization.Serializable
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -31,17 +33,26 @@ class MainActivity : ComponentActivity() {
 fun ProofAppNavigation() {
     val controller = rememberNavController()
     val cameraViewModel: CameraViewModel = hiltViewModel()
+    val settingsViewModel: SettingsViewModel = hiltViewModel()
+
     NavHost(navController = controller,
-        startDestination = Destinations.CAMERA){
-        composable(Destinations.CAMERA) {
+        startDestination = Destinations.Camera){
+        composable<Destinations.Camera> {
             CameraScreen(viewModel = cameraViewModel, onNavigateToPreview = {
-                controller.navigate(Destinations.PREVIEW)
+                controller.navigate(Destinations.Preview)
+            }, onNavigateToSettings = {
+                controller.navigate(Destinations.Settings)
             })
 
         }
 
-        composable(Destinations.PREVIEW) {
+        composable<Destinations.Preview> {
             MediaPreview(viewModel = cameraViewModel, onNavigateBack = {
+                controller.popBackStack()
+            })
+        }
+        composable<Destinations.Settings> {
+            SettingsScreen(viewModel = settingsViewModel, onNavigateBack = {
                 controller.popBackStack()
             })
         }
@@ -50,6 +61,14 @@ fun ProofAppNavigation() {
 }
 
 object Destinations {
-    const val CAMERA = "CAMERA"
-    const val PREVIEW = "PREVIEW"
+    @Serializable
+    object Camera
+
+    @Serializable
+    object Preview
+
+    @Serializable
+    object Settings
 }
+
+

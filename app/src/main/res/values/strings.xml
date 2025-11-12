@@ -9,7 +9,7 @@
     <string name="turn_flash_on_description">Turn flash on</string>
     <string name="delete_media_confirmation">Delete media</string>
     <string name="delete">Delete</string>
-    <string name="permission_request_message">This feature requires camera and audio permissions. Please grant them to continue.</string>
+    <string name="permission_request_message">This feature requires camera and audio permissions.Location permissions are optional. Please grant them to continue.</string>
     <string name="grant_permissions">Grant Permissions</string>
     <string name="take_photo">Take Photo</string>
     <string name="start_recording">Start Recording</string>
@@ -17,4 +17,14 @@
     <string name="resume_recording">Resume Recording</string>
     <string name="stop_recording">Stop Recording</string>
     <string name="switch_camera">Switch Camera</string>
+    <string name="location_permission_required">Location Permission Required</string>
+    <string name="location_permission_description">To add location data to your media, you must grant location permissions.</string>
+    <string name="continue_">Continue</string>
+    <string name="settings">Settings</string>
+    <string name="name">Name</string>
+    <string name="user_name">User Name</string>
+    <string name="user_email">User Email</string>
+    <string name="enable_location">Enable Location</string>
+    <string name="toggle_sharing_location">Toggle sharing location</string>
+    <string name="permissions_required">Permissions Required</string>
 </resources>

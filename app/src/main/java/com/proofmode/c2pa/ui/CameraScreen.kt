@@ -31,32 +31,37 @@ import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.google.accompanist.permissions.shouldShowRationale
 import com.proofmode.c2pa.R
 
 private val permissions = mutableListOf(
@@ -73,19 +78,17 @@ private val permissions = mutableListOf(
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun CameraScreen(viewModel: CameraViewModel,modifier: Modifier = Modifier,
-                 onNavigateToPreview: () -> Unit) {
+                 onNavigateToPreview: () -> Unit,
+                 onNavigateToSettings: () -> Unit) {
     val permissionsState = rememberMultiplePermissionsState(permissions)
+    var showRationaleDialog by remember { mutableStateOf(false) }
 
-    // Define which permissions are absolutely required for the camera to function.
     val requiredPermissions = listOfNotNull(
         Manifest.permission.CAMERA,
         Manifest.permission.RECORD_AUDIO,
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) Manifest.permission.WRITE_EXTERNAL_STORAGE else null
     )
 
-
-
-    // Check if all *required* permissions have been granted.
     val areRequiredPermissionsGranted = permissionsState.permissions.filter {
         it.permission in requiredPermissions
     }.all {
@@ -94,38 +97,79 @@ fun CameraScreen(viewModel: CameraViewModel,modifier: Modifier = Modifier,
 
     Scaffold(modifier = modifier) { paddingValues ->
 
-            when {
-                areRequiredPermissionsGranted -> {
-                    CameraCaptureScreen(viewModel, onNavigateToPreview = onNavigateToPreview, paddingValues = paddingValues)
-                }
+        if (showRationaleDialog) {
+            PermissionRationaleDialog(
+                onConfirm = {
+                    showRationaleDialog = false
+                    permissionsState.launchMultiplePermissionRequest()
+                },
+                onDismiss = { showRationaleDialog = false }
+            )
+        }
 
-                else -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.permission_request_message),
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { permissionsState.launchMultiplePermissionRequest() }) {
-                            Text(text = stringResource(id = R.string.grant_permissions))
+        when {
+            areRequiredPermissionsGranted -> {
+                CameraCaptureScreen(viewModel,
+                    onNavigateToPreview = onNavigateToPreview,
+                    paddingValues = paddingValues,
+                    onNavigateToSettings = onNavigateToSettings)
+            }
+
+            else -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.permission_request_message),
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = {
+                        if (permissionsState.permissions.any { !it.status.isGranted && it.status.shouldShowRationale }) {
+                            showRationaleDialog = true
+                        } else {
+                            permissionsState.launchMultiplePermissionRequest()
                         }
+                    }) {
+                        Text(text = stringResource(id = R.string.grant_permissions))
                     }
                 }
             }
+        }
 
     }
 }
 
 @Composable
-private fun CameraCaptureScreen(viewModel: CameraViewModel, onNavigateToPreview: () -> Unit = {},
+private fun PermissionRationaleDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.permissions_required)) },
+        text = { Text(stringResource(R.string.permission_request_message)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(R.string.continue_))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
+}
+
+
+@Composable
+private fun CameraCaptureScreen(viewModel: CameraViewModel,
+                                onNavigateToPreview: () -> Unit = {},
+                                onNavigateToSettings: () -> Unit = {},
                                 paddingValues: PaddingValues) {
     val previewUri by viewModel.thumbPreviewUri.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -136,12 +180,14 @@ private fun CameraCaptureScreen(viewModel: CameraViewModel, onNavigateToPreview:
         viewModel.bindToCamera(lifecycleOwner)
     }
 
-    Box(modifier = Modifier.fillMaxSize()
+    Box(modifier = Modifier
+        .fillMaxSize()
         .padding(paddingValues)
     ) {
         CameraPreview(
-            modifier = Modifier.matchParentSize()
-                .pointerInput(Unit){
+            modifier = Modifier
+                .matchParentSize()
+                .pointerInput(Unit) {
                     detectTapGestures(onDoubleTap = {
                         viewModel.flipCamera()
                     }, onTap = {
@@ -152,16 +198,33 @@ private fun CameraCaptureScreen(viewModel: CameraViewModel, onNavigateToPreview:
             surfaceRequest = surfaceRequest
         )
 
-        IconButton(onClick = {
-            viewModel.flipCamera()
-        },
-            modifier = Modifier.align(Alignment.TopEnd)
-                .padding(horizontal = 64.dp)
-        ) {
-            Icon(Icons.Default.Cameraswitch,contentDescription = stringResource(R.string.switch_camera),
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onPrimary
-            )
+        Row(modifier = Modifier
+            .align(Alignment.TopEnd)
+            .padding(horizontal = 64.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ){
+            IconButton(onClick = {
+                viewModel.flipCamera()
+            },
+            ) {
+                Icon(Icons.Default.Cameraswitch,contentDescription = stringResource(R.string.switch_camera),
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+
+            AnimatedVisibility(visible = (recordingState == RecordingState.Idle
+                    || recordingState is RecordingState.Finalized)  ){
+                IconButton(onClick = {
+                    onNavigateToSettings()
+                },
+                ) {
+                    Icon(Icons.Default.Settings,contentDescription = stringResource(R.string.switch_camera),
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
         }
 
         Row(

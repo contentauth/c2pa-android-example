@@ -3,11 +3,9 @@ package com.proofmode.c2pa.ui
 import android.Manifest
 import android.content.ContentValues
 import android.content.Context
-import android.location.Location
 import android.os.Build
 import android.provider.MediaStore
 import androidx.camera.core.Camera
-import androidx.camera.core.CameraControl
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
@@ -27,8 +25,9 @@ import androidx.core.content.PermissionChecker
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.proofmode.c2pa.data.Media
 import com.proofmode.c2pa.c2pa_signing.C2PAManager
+import com.proofmode.c2pa.c2pa_signing.IPreferencesManager
+import com.proofmode.c2pa.data.Media
 import com.proofmode.c2pa.utils.Constants
 import com.proofmode.c2pa.utils.getCurrentLocation
 import com.proofmode.c2pa.utils.getMediaFlow
@@ -37,6 +36,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -50,7 +50,8 @@ import javax.inject.Inject
 @HiltViewModel
 class CameraViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val c2paManager: C2PAManager
+    private val c2paManager: C2PAManager,
+    private val preferencesManager: IPreferencesManager
 ) : ViewModel() {
 
     private val outputDirectory = Constants.outputDirectory
@@ -74,7 +75,8 @@ class CameraViewModel @Inject constructor(
             _surfaceRequest.update { newSurfaceRequest }
             surfaceOrientedMeteringPointFactory = SurfaceOrientedMeteringPointFactory(
                 newSurfaceRequest.resolution.width.toFloat(),
-                newSurfaceRequest.resolution.height.toFloat())
+                newSurfaceRequest.resolution.height.toFloat()
+            )
         }
     }
     private var camera: Camera? = null
@@ -151,56 +153,60 @@ class CameraViewModel @Inject constructor(
         rebindUseCases()
     }
 
+    fun saveLocationSharing(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesManager.setLocationSharing(enabled)
+        }
+    }
+
     fun takePhoto() {
         val imageCapture = imageCaptureUseCase
-        var currentLocation: Location? = null
         viewModelScope.launch {
-            currentLocation = getCurrentLocation(context)
-            Timber.d("takePhoto: $currentLocation")
-        }
-
-        val outputOptions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val contentValues = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, System.currentTimeMillis())
-                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-                put(MediaStore.MediaColumns.RELATIVE_PATH, outputDirectory)
+            val location = if (preferencesManager.locationSharing.first()) {
+                getCurrentLocation(context)
+            } else {
+                null
             }
-            ImageCapture.OutputFileOptions.Builder(context.contentResolver, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-        } else {
-            File(outputDirectory).mkdirs()
-            val name = generateName()
-            val fileMedia = File(outputDirectory, "$name.jpg")
-            ImageCapture.OutputFileOptions.Builder(fileMedia)
-        }.apply {
-            setMetadata(ImageCapture.Metadata().apply { location = currentLocation })
-        }.build()
 
-        imageCapture.takePicture(
-            outputOptions,
-            cameraExecutor,
-            object : ImageCapture.OnImageSavedCallback {
-                override fun onError(exc: ImageCaptureException) {
-                    Timber.e(exc)
+            val outputOptions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, System.currentTimeMillis())
+                    put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, outputDirectory)
                 }
+                ImageCapture.OutputFileOptions.Builder(context.contentResolver, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+            } else {
+                File(outputDirectory).mkdirs()
+                val name = generateName()
+                val fileMedia = File(outputDirectory, "$name.jpg")
+                ImageCapture.OutputFileOptions.Builder(fileMedia)
+            }.apply {
+                location?.let { setMetadata(ImageCapture.Metadata().apply { this.location = it }) }
+            }.build()
 
-                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                    viewModelScope.launch {
-                        output.savedUri?.let {
-                            c2paManager.signMediaFile(it, "image/jpeg", location = currentLocation)
+            imageCapture.takePicture(
+                outputOptions,
+                cameraExecutor,
+                object : ImageCapture.OnImageSavedCallback {
+                    override fun onError(exc: ImageCaptureException) {
+                        Timber.e(exc)
+                    }
+
+                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                        viewModelScope.launch {
+                            output.savedUri?.let {
+                                c2paManager.signMediaFile(it, "image/jpeg", location = location)
+                            }
+                            loadFiles()
                         }
-                        loadFiles()
                     }
                 }
-            }
-        )
+            )
+        }
     }
 
     fun captureVideo() {
         val videoCapture = this.videoCaptureUseCase
-        var location: Location? = null
-        viewModelScope.launch {
-            location = getCurrentLocation(context)
-        }
 
         val curRecording = recording
         if (curRecording != null) {
@@ -210,49 +216,57 @@ class CameraViewModel @Inject constructor(
             return
         }
 
-        val name = generateName()
-        val contentValues = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-            put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
-            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
-                put(MediaStore.Video.Media.RELATIVE_PATH, outputDirectory)
+        viewModelScope.launch {
+            val location = if (preferencesManager.locationSharing.first()) {
+                getCurrentLocation(context)
+            } else {
+                null
             }
-        }
 
-        val mediaStoreOutputOptions = MediaStoreOutputOptions
-            .Builder(context.contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-            .setLocation(location)
-            .setContentValues(contentValues)
-            .build()
-
-        recording = videoCapture.output
-            .prepareRecording(context, mediaStoreOutputOptions)
-            .apply {
-                if (PermissionChecker.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PermissionChecker.PERMISSION_GRANTED) {
-                    withAudioEnabled()
+            val name = generateName()
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+                if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+                    put(MediaStore.Video.Media.RELATIVE_PATH, outputDirectory)
                 }
             }
-            .asPersistentRecording() // persist recording
-            .start(cameraExecutor) { recordEvent ->
-                when (recordEvent) {
-                    is VideoRecordEvent.Start -> _recordingState.update { RecordingState.Recording }
-                    is VideoRecordEvent.Pause -> _recordingState.update { RecordingState.Paused }
-                    is VideoRecordEvent.Resume -> _recordingState.update { RecordingState.Recording }
-                    is VideoRecordEvent.Finalize -> {
-                        if (!recordEvent.hasError()) {
-                            _recordingState.update { RecordingState.Finalized(recordEvent.outputResults.outputUri) }
-                            viewModelScope.launch {
-                                c2paManager.signMediaFile(recordEvent.outputResults.outputUri, "video/mp4", location = location)
-                                loadFiles()
+
+            val mediaStoreOutputOptions = MediaStoreOutputOptions
+                .Builder(context.contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+                .setLocation(location)
+                .setContentValues(contentValues)
+                .build()
+
+            recording = videoCapture.output
+                .prepareRecording(context, mediaStoreOutputOptions)
+                .apply {
+                    if (PermissionChecker.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PermissionChecker.PERMISSION_GRANTED) {
+                        withAudioEnabled()
+                    }
+                }
+                .asPersistentRecording() // persist recording
+                .start(cameraExecutor) { recordEvent ->
+                    when (recordEvent) {
+                        is VideoRecordEvent.Start -> _recordingState.update { RecordingState.Recording }
+                        is VideoRecordEvent.Pause -> _recordingState.update { RecordingState.Paused }
+                        is VideoRecordEvent.Resume -> _recordingState.update { RecordingState.Recording }
+                        is VideoRecordEvent.Finalize -> {
+                            if (!recordEvent.hasError()) {
+                                _recordingState.update { RecordingState.Finalized(recordEvent.outputResults.outputUri) }
+                                viewModelScope.launch {
+                                    c2paManager.signMediaFile(recordEvent.outputResults.outputUri, "video/mp4", location = location)
+                                    loadFiles()
+                                }
+                            } else {
+                                recording?.close()
+                                recording = null
+                                _recordingState.update { RecordingState.Error(recordEvent.cause?.message) }
                             }
-                        } else {
-                            recording?.close()
-                            recording = null
-                            _recordingState.update { RecordingState.Error(recordEvent.cause?.message) }
                         }
                     }
                 }
-            }
+        }
     }
 
     fun tapToFocus(tapCoordinates: Offset) {
