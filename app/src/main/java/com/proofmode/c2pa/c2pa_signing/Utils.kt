@@ -5,6 +5,9 @@ import android.content.Intent
 import android.location.Location
 import android.net.Uri
 import com.proofmode.c2pa.data.Media
+import timber.log.Timber
+import java.io.File
+import java.io.FileOutputStream
 
 
 fun getLatitudeAsDMS(location: Location, decimalPlace: Int): String {
@@ -47,5 +50,20 @@ fun shareMedia(context: Context,media: Media) {
     val mime = if (media.isVideo) "video/*" else "image/*"
     shareMedia(context = context, uri = media.uri, mimeType = mime)
 
+}
+
+internal fun createTempFileFromUri(uri: Uri,context: Context): File? {
+    return try {
+        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            val tempFile = File.createTempFile("c2pa_temp_", uri.lastPathSegment, context.cacheDir)
+            FileOutputStream(tempFile).use { outputStream ->
+                inputStream.copyTo(outputStream)
+            }
+            tempFile
+        }
+    } catch (e: Exception) {
+        Timber.e(e, "Failed to create temp file from URI")
+        null
+    }
 }
 

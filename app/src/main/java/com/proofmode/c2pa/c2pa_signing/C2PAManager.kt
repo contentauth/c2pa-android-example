@@ -112,7 +112,7 @@ class C2PAManager @Inject constructor (private val context: Context, private val
 
     suspend fun signMediaFile(uri: Uri, contentType: String,location: Location?): Result<Unit> = withContext(Dispatchers.IO) {
         // 1. Create a temporary file from the source URI to work with.
-        val tempSourceFile = createTempFileFromUri(uri)
+        val tempSourceFile = createTempFileFromUri(uri, context = context)
             ?: return@withContext Result.failure(IOException("Could not create temporary file from Uri: $uri"))
 
         // 2. Create a second temporary file for the signed output.
@@ -715,18 +715,5 @@ class C2PAManager @Inject constructor (private val context: Context, private val
 
     }
 
-    private fun createTempFileFromUri(uri: Uri): File? {
-        return try {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                val tempFile = File.createTempFile("c2pa_temp_", uri.lastPathSegment, context.cacheDir)
-                FileOutputStream(tempFile).use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-                tempFile
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to create temp file from URI")
-            null
-        }
-    }
+
 }

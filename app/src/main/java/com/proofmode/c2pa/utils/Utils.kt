@@ -134,7 +134,6 @@ private fun getMediaQPlus(context: Context, outputDirectory: String): List<Media
 
 private fun getMediaQMinus(context: Context, outputDirectory: String): List<Media> {
     val items = mutableListOf<Media>()
-
     File(outputDirectory).listFiles()?.forEach {
         val authority = context.applicationContext.packageName + ".provider"
         val mediaUri = FileProvider.getUriForFile(context, authority, it)
@@ -143,6 +142,7 @@ private fun getMediaQMinus(context: Context, outputDirectory: String): List<Medi
 
     return items
 }
+
 
 
 object Constants {

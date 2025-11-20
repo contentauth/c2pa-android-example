@@ -20,6 +20,11 @@ import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
 import androidx.camera.video.VideoRecordEvent
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.core.content.PermissionChecker
 import androidx.lifecycle.LifecycleOwner
@@ -27,6 +32,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.proofmode.c2pa.c2pa_signing.C2PAManager
 import com.proofmode.c2pa.c2pa_signing.IPreferencesManager
+import com.proofmode.c2pa.c2pa_signing.createTempFileFromUri
 import com.proofmode.c2pa.data.Media
 import com.proofmode.c2pa.utils.Constants
 import com.proofmode.c2pa.utils.getCurrentLocation
@@ -39,6 +45,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.contentauth.c2pa.C2PA
 import timber.log.Timber
 import java.io.File
 import java.text.SimpleDateFormat
@@ -279,6 +286,23 @@ class CameraViewModel @Inject constructor(
 
         }
 
+    }
+
+    fun readManifest(media: Media): String? {
+        Timber.d("The Authority is ${media.uri.scheme}")
+        var manifest: String? = null
+       viewModelScope.launch {
+           val tempFile = createTempFileFromUri(media.uri, context)
+           if (tempFile != null) {
+               try {
+
+                   manifest = C2PA.read(tempFile)
+               }finally {
+                   tempFile.delete()
+               }
+           }
+       }
+        return manifest
     }
 
 

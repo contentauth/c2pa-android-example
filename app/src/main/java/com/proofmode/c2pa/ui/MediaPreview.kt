@@ -12,29 +12,40 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.decode.VideoFrameDecoder
 import coil.load
+import com.proofmode.c2pa.R
 import com.proofmode.c2pa.c2pa_signing.shareMedia
 import com.proofmode.c2pa.data.Media
 
@@ -48,6 +59,12 @@ fun MediaPreview(viewModel: CameraViewModel, modifier: Modifier = Modifier,
     val pagerState = rememberPagerState(pageCount = {
         mediaItems.size
     })
+
+    var showCredentialsDialog by remember { mutableStateOf(false) }
+    var manifestJson: String? by remember { mutableStateOf(null) }
+
+
+
 
     BackHandler(enabled = onNavigateBack != null) {
         onNavigateBack?.invoke()
@@ -81,17 +98,46 @@ fun MediaPreview(viewModel: CameraViewModel, modifier: Modifier = Modifier,
         }
     }) {
 
-        HorizontalPager(state = pagerState) { itemIdx->
-            when(mediaItems[itemIdx].isVideo) {
-                true -> SimpleVideoView(videoUri = mediaItems[itemIdx].uri, modifier = Modifier.fillMaxSize())
-                false -> ImagePreview(modifier = Modifier.fillMaxSize(), media = mediaItems[itemIdx])
+        HorizontalPager(state = pagerState,
+            modifier = Modifier.padding(it)) { itemIdx->
+            val media = mediaItems[itemIdx]
+            MediaView(media = media) {
+                manifestJson = viewModel.readManifest(media)
+                showCredentialsDialog = true
             }
+        }
+
+        if (showCredentialsDialog) {
+            CredentialsDialog(onDismiss = {
+                showCredentialsDialog = false
+            }, manifestJson = manifestJson?:"")
         }
 
 
 
     }
 
+}
+
+
+@Composable
+fun MediaView(media: Media,modifier: Modifier = Modifier,
+              onCredentialsClick: () -> Unit) {
+
+
+    Box(modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center){
+        when(media.isVideo) {
+            true -> SimpleVideoView(videoUri = media.uri, modifier = Modifier)
+            else -> ImagePreview(modifier = Modifier, media = media)
+        }
+        IconButton(onClick = onCredentialsClick,
+            modifier = Modifier.align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            Icon(painter = painterResource(R.drawable.contentcredentials), contentDescription = null)
+        }
+    }
 }
 
 
@@ -120,22 +166,39 @@ fun SimpleVideoView(videoUri:Uri,modifier: Modifier = Modifier) {
 
 @Composable
 fun ImagePreview(modifier: Modifier,media: Media){
-    Box(modifier = modifier,
-        contentAlignment = Alignment.Center){
-        AndroidView(factory = { context->
+    AndroidView(factory = { context->
 
-            val imageView = ImageView(context).apply {
-                scaleType = ImageView.ScaleType.FIT_CENTER
-                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
+        val imageView = ImageView(context).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+        imageView.load(media.uri) {
+            if (media.isVideo) {
+                decoderFactory { result, options, _ -> VideoFrameDecoder(result.source, options) }
             }
-            imageView.load(media.uri) {
-                if (media.isVideo) {
-                    decoderFactory { result, options, _ -> VideoFrameDecoder(result.source, options) }
-                }
+        }
+        imageView
+
+    }, modifier = modifier)
+
+}
+
+@Composable
+fun CredentialsDialog(onDismiss: () -> Unit,
+                      manifestJson: String) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.content_credentials)) },
+        text = { Text(manifestJson) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.dismiss))
             }
-            imageView
-
-        }, modifier = Modifier.fillMaxSize())
-    }
-
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
 }
