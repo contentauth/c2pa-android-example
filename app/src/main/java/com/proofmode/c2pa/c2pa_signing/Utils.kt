@@ -5,6 +5,8 @@ import android.content.Intent
 import android.location.Location
 import android.net.Uri
 import com.proofmode.c2pa.data.Media
+import org.contentauth.c2pa.Reader
+import org.contentauth.c2pa.Stream
 import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
@@ -52,10 +54,24 @@ fun shareMedia(context: Context,media: Media) {
 
 }
 
-internal fun createTempFileFromUri(uri: Uri,context: Context): File? {
+internal fun createTempFileFromUri(uri: Uri, context: Context): File? {
     return try {
+        val mime = context.contentResolver.getType(uri)
+        val ext = when (mime) {
+            "image/jpeg" -> ".jpg"
+            "image/png" -> ".png"
+            "image/webp" -> ".webp"
+            "video/mp4" -> ".mp4"
+            else -> null
+        }
+
+        if (ext == null) {
+            Timber.e("Unsupported MIME type for C2PA: $mime")
+            return null
+        }
+
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            val tempFile = File.createTempFile("c2pa_temp_", uri.lastPathSegment, context.cacheDir)
+            val tempFile = File.createTempFile("c2pa_temp_", ext, context.cacheDir)
             FileOutputStream(tempFile).use { outputStream ->
                 inputStream.copyTo(outputStream)
             }
@@ -66,4 +82,7 @@ internal fun createTempFileFromUri(uri: Uri,context: Context): File? {
         null
     }
 }
+
+
+
 

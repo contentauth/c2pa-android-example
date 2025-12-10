@@ -46,6 +46,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.contentauth.c2pa.C2PA
+import org.contentauth.c2pa.manifest.Ingredient
 import timber.log.Timber
 import java.io.File
 import java.text.SimpleDateFormat
@@ -294,8 +295,7 @@ class CameraViewModel @Inject constructor(
            val tempFile = createTempFileFromUri(media.uri, context)
            if (tempFile != null) {
                try {
-
-                   manifest = C2PA.readFile(tempFile.absolutePath)
+                   manifest = C2PA.read(tempFile)
                }finally {
                    tempFile.delete()
                }

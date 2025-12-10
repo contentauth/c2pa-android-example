@@ -51,6 +51,7 @@ suspend fun getCurrentLocation(context: Context): Location? {
 
 
 
+
 fun getMediaFlow(context: Context, outputDirectory: String): Flow<List<Media>> = flow {
     emit(emptyList())
     val media = getMedia(context,outputDirectory)
