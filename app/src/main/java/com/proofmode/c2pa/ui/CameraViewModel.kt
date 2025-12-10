@@ -46,6 +46,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.contentauth.c2pa.C2PA
+import org.contentauth.c2pa.manifest.Ingredient
 import timber.log.Timber
 import java.io.File
 import java.text.SimpleDateFormat
@@ -289,13 +290,11 @@ class CameraViewModel @Inject constructor(
     }
 
     fun readManifest(media: Media): String? {
-        Timber.d("The Authority is ${media.uri.scheme}")
         var manifest: String? = null
        viewModelScope.launch {
            val tempFile = createTempFileFromUri(media.uri, context)
            if (tempFile != null) {
                try {
-
                    manifest = C2PA.read(tempFile)
                }finally {
                    tempFile.delete()

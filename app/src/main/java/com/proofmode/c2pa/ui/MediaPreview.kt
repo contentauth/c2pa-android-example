@@ -24,15 +24,19 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,7 +51,11 @@ import coil.decode.VideoFrameDecoder
 import coil.load
 import com.proofmode.c2pa.R
 import com.proofmode.c2pa.c2pa_signing.shareMedia
+import com.proofmode.c2pa.data.Manifest
+import com.proofmode.c2pa.data.ManifestRoot
 import com.proofmode.c2pa.data.Media
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,8 +68,14 @@ fun MediaPreview(viewModel: CameraViewModel, modifier: Modifier = Modifier,
         mediaItems.size
     })
 
-    var showCredentialsDialog by remember { mutableStateOf(false) }
-    var manifestJson: String? by remember { mutableStateOf(null) }
+    val json = Json { ignoreUnknownKeys = true }
+    var manifest: Manifest? by remember { mutableStateOf(null) }
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
+    var isSheetOpen by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
 
 
@@ -102,15 +116,47 @@ fun MediaPreview(viewModel: CameraViewModel, modifier: Modifier = Modifier,
             modifier = Modifier.padding(it)) { itemIdx->
             val media = mediaItems[itemIdx]
             MediaView(media = media) {
-                manifestJson = viewModel.readManifest(media)
-                showCredentialsDialog = true
+                val manifestJson = viewModel.readManifest(media)
+                if (manifestJson != null) {
+                    val manifestRoot = json.decodeFromString<ManifestRoot>(manifestJson)
+                    manifest = manifestRoot.manifests[manifestRoot.activeManifest]
+                    isSheetOpen = true
+                }
             }
         }
 
-        if (showCredentialsDialog) {
+        /*if (showCredentialsDialog) {
             CredentialsDialog(onDismiss = {
                 showCredentialsDialog = false
             }, manifestJson = manifestJson?:"")
+        }*/
+
+        if(isSheetOpen) {
+            ModalBottomSheet(onDismissRequest = {
+                isSheetOpen = false
+            }, sheetState = sheetState,
+                modifier = Modifier.fillMaxSize()) {
+                Scaffold(topBar = {
+                    TopAppBar(title = {
+                        Text(stringResource(R.string.content_credentials))
+                    },
+                        navigationIcon = {
+                            IconButton(onClick = {
+                                scope.launch { sheetState.hide()}
+                                    .invokeOnCompletion {
+                                        if (!sheetState.isVisible) {
+                                            isSheetOpen = false
+                                        }
+                                    }
+                            }) { }
+                        })
+                }) { innerPadding->
+                    manifest?.let {
+                        ManifestDetailsScreen(manifest = it, modifier = Modifier.padding(innerPadding))
+                    }
+
+                }
+            }
         }
 
 
