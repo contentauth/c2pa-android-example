@@ -21,6 +21,7 @@ The app is built using modern Android development practices with Jetpack Compose
 - Permissions: Accompanist Permissions for a clean, composable-based permissions handling flow.
 - Location: Google Play Services Fused Location Provider for accurate and efficient location fetching.
 - Image Loading: Coil for displaying the thumbnail preview.
+- Maps Compose: For showing location of captured media(ensure to get a Google maps key and place it in local.defaults.properties and app/secrets.properties)
 
 ## Project Architecture
 The application's logic is centered around a few key files that demonstrate a clean separation of concerns.

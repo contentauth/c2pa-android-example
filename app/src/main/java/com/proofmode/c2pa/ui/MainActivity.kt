@@ -63,45 +63,10 @@ fun ProofAppNavigation3() {
 
         }
     )
-
-
-
-    /*NavHost(navController = controller,
-        startDestination = Destinations.Camera){
-        composable<Destinations.Camera> {
-            CameraScreen(viewModel = cameraViewModel, onNavigateToPreview = {
-                controller.navigate(Destinations.Preview)
-            }, onNavigateToSettings = {
-                controller.navigate(Destinations.Settings)
-            })
-
-        }
-
-        composable<Destinations.Preview> {
-            MediaPreview(viewModel = cameraViewModel, onNavigateBack = {
-                controller.popBackStack()
-            })
-        }
-        composable<Destinations.Settings> {
-            SettingsScreen(viewModel = settingsViewModel, onNavigateBack = {
-                controller.popBackStack()
-            })
-        }
-
-    }*/
 }
 
 
-object Destinations {
-    @Serializable
-    object Camera
 
-    @Serializable
-    object Preview
-
-    @Serializable
-    object Settings
-}
 
 @Serializable
 sealed class AppDestination: NavKey {

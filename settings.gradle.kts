@@ -32,5 +32,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ProofmodeC2pa"
+rootProject.name = "c2pa-android-example"
 include(":app")
