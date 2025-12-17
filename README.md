@@ -34,10 +34,8 @@ The application's logic is centered around a few key files that demonstrate a cl
 
 **[CameraScreen.kt](https://github.com/contentauth/c2pa-android-example/blob/main/app/src/main/java/com/proofmode/c2pa/ui/CameraScreen.kt)**:
 
-- The main entry point for the camera UI.
-- Handles all runtime permission requests (Camera, Audio, Location).
-- Displays either a permission request screen or the main `CameraCaptureScreen`.
-- `CameraCaptureScreen` (within `CameraScreen.kt`):
+The main entry point for the camera UI that handles all runtime permission requests (Camera, Audio, Location):
+- Displays either a permission request screen or the main `CameraCaptureScreen` that:
   - Observes state from `CameraViewModel` (`recordingState`, `thumbPreviewUri`).
   - Displays the `CameraXViewfinder` for the live camera preview. Provides `IconButton` controls for taking photos, starting/pausing/resuming/stopping video, and navigating to a media preview.
   - The thumbnail preview dynamically updates by observing `StateFlow` of the `thumbPreviewUri`.
@@ -46,18 +44,18 @@ The application's logic is centered around a few key files that demonstrate a cl
 
 **[CameraViewModel.kt](https://github.com/contentauth/c2pa-android-example/blob/main/app/src/main/java/com/proofmode/c2pa/ui/CameraViewModel.kt):**
 
-- The core of the application's logic, acting as the bridge between the UI and the data/domain layers.
+The core of the application's logic; acts as the bridge between the UI and the data/domain layers and:
 - Manages the camera's lifecycle via `bindToCamera`.
 - Handles user actions like `takePhoto()` and `captureVideo()`.
 - Manages the recording state through the `RecordingState` sealed class, exposing it as a `StateFlow` for the UI to observe.
 - Fetches the device's location using `getCurrentLocation()` before a capture.
-- After a capture is saved, it triggers the `signWithC2PA()` function. 
+- After a capture is saved, it triggers the `signMediaFile()` function. 
 
-### C2PA Signing logic (/c2pa)
+### C2PA signing logic (/c2pa_signing)
 
-**[Utils.kt](./app/src/main/java/com/proofmode/c2pa/c2pa/Utils.kt):**
+**[Utils.kt](https://github.com/contentauth/c2pa-android-example/blob/main/app/src/main/java/com/proofmode/c2pa/c2pa_signing/C2PAManager.kt):**
 
-- Contains the `signWithC2PA()` function, which is the heart of the content signing process.
+Contains the `signMediaFile()` function, which is the heart of the content signing process:
 - Scoped Storage Solution: To sign a file from a `content://` URI, it first creates a temporary file in the app's cache, signs that file in-place, and then writes the modified (signed) file back to the original URI.
 - Constructs the C2PA manifest, adding claims for the action (`c2pa.created`), software agent, and location data.
 - Configures the `SignerInfo` object using RSA keys stored locally as PEM files.
