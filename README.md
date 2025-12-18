@@ -64,7 +64,9 @@ Contains the `signMediaFile()` function, which is the heart of the content signi
 
 **[Utils.kt](https://github.com/contentauth/c2pa-android-example/blob/main/app/src/main/java/com/proofmode/c2pa/utils/Utils.kt)**:
 
-- `getOrGenerateKeyPair()`, `saveKeyToPem()`, etc.: A set of functions for generating an RSA KeyPair and saving it to disk in the standard PEM format.
+- `getOrGenerateKeyPair()`: Generates an RSA key-pair. Was this renamed to `generateKeyPair()` and moved to https://github.com/contentauth/c2pa-android-example/blob/main/app/src/main/java/com/proofmode/c2pa/c2pa_signing/selfsign/CertificateSigningService.kt#L154 ?
+
+- `saveKeyToPem()`: Saves the key-pair to disk in the standard PEM format.
 - `readPemString()`: A robust function to read PEM files, correctly stripping headers/footers.
 - `getCurrentLocation()`: A suspend function that uses the Fused Location Provider to fetch the device's location one time.
 - `getMediaFlow()`: A function that queries the Android MediaStore to retrieve all photos and videos created by the app, exposing them as a Kotlin Flow.
