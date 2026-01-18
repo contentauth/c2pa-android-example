@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.proofmode.c2pa"
+    namespace = "org.proofmode.c2pa"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.proofmode.c2pa"
+        applicationId = "org.proofmode.c2pa"
         minSdk = 28
         targetSdk = 36
         versionCode = 1

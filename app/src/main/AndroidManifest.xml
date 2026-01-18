@@ -16,7 +16,7 @@
 
     <application
         android:allowBackup="true"
-        android:name=".C2PAApp"
+        android:name="org.proofmode.c2pa.C2PAApp"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -34,7 +34,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
         <activity
-            android:name=".ui.MainActivity"
+            android:name="org.proofmode.c2pa.ui.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.ProofmodeC2pa">
