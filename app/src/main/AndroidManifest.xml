@@ -16,14 +16,14 @@
 
     <application
         android:allowBackup="true"
-        android:name="org.proofmode.c2pa.C2PAApp"
+        android:name="org.contentauth.android.sample.c2pa.C2PAApp"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.ProofmodeC2pa">
+        android:theme="@style/Theme.ContentAuthC2pa">
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
@@ -34,10 +34,10 @@
                 android:resource="@xml/file_paths" />
         </provider>
         <activity
-            android:name="org.proofmode.c2pa.ui.MainActivity"
+            android:name="org.contentauth.android.sample.c2pa.ui.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.ProofmodeC2pa">
+            android:theme="@style/Theme.ContentAuthC2pa">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

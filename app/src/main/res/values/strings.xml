@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">ProofmodeC2pa</string>
+    <string name="app_name">C2pa Demo</string>
     <string name="grid_lines_hide_description">Hide grid lines</string>
     <string name="show_grid_lines_description">Show grid lines</string>
     <string name="change_flash_mode_content_description">Change flash mode</string>

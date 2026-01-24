@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "org.proofmode.c2pa"
+    namespace = "org.contentauth.android.sample.c2pa"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "org.proofmode.c2pa"
+        applicationId = "org.contentauth.android.sample.c2pa"
         minSdk = 28
         targetSdk = 36
         versionCode = 1

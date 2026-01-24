@@ -1,0 +1,32 @@
+package org.contentauth.android.sample.c2pa.di
+
+import android.content.Context
+import org.contentauth.android.sample.c2pa.c2pa_signing.C2PAManager
+import org.contentauth.android.sample.c2pa.c2pa_signing.IPreferencesManager
+import org.contentauth.android.sample.c2pa.c2pa_signing.PreferencesManager
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+
+@Module
+@InstallIn(SingletonComponent::class)
+object C2PAModule {
+
+    @Provides
+    @Singleton
+    fun providePreferencesManager(@ApplicationContext context: Context): IPreferencesManager {
+        return PreferencesManager(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideC2PAManager(
+        @ApplicationContext context: Context,
+        preferencesManager: IPreferencesManager
+    ): C2PAManager {
+        return C2PAManager(context, preferencesManager)
+    }
+}
