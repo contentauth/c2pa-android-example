@@ -4,6 +4,15 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+import java.time.format.FormatStyle
+import java.util.Locale
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -51,8 +60,10 @@ data class ClaimGeneratorInfo(
     val name: String,
     val version: String,
 
-    @SerialName("org.cai.c2pa_rs")
-    val c2paRs: String
+    // c2pa-rs stamps its own version here. The key was "org.cai.c2pa_rs" in older
+    // releases, so it stays optional and simply reads null for assets signed with those.
+    @SerialName("org.contentauth.c2pa_rs")
+    val c2paRs: String? = null
 )
 
 @Serializable
@@ -60,11 +71,12 @@ data class Ingredient(
     val title: String,
     val format: String,
 
+    // Not emitted by current c2pa-rs releases when reading a manifest back.
     @SerialName("instance_id")
-    val instanceId: String,
+    val instanceId: String? = null,
 
     val relationship: String,
-    val label: String
+    val label: String? = null
 )
 
 @Serializable
@@ -92,9 +104,9 @@ data class ValidationResults(
 
 @Serializable
 data class ActiveManifest(
-    val success: List<ValidationItem>,
-    val informational: List<ValidationItem>,
-    val failure: List<ValidationItem>
+    val success: List<ValidationItem> = emptyList(),
+    val informational: List<ValidationItem> = emptyList(),
+    val failure: List<ValidationItem> = emptyList()
 )
 
 @Serializable
@@ -169,17 +181,21 @@ fun extractMetadata(manifest: Manifest): ManifestMetadata {
         }
 
     // CAWG TRAINING MINING ASSERTION
+    // The data is a JSON object. Assets signed by older builds of this app stored it
+    // as a JSON-encoded string instead, so that form is still accepted when reading.
     manifest.assertions
         .firstOrNull { it.label == "cawg.training-mining" }
         ?.data
-        ?.jsonPrimitive
-        ?.content
-        ?.let {
+        ?.let { element ->
             val json = Json { ignoreUnknownKeys = true }
-            try {
-                cawgTrainingMining = json.decodeFromString<CawgTrainingMining>(it)
+            cawgTrainingMining = try {
+                when (element) {
+                    is JsonObject -> json.decodeFromJsonElement<CawgTrainingMining>(element)
+                    is JsonPrimitive -> json.decodeFromString<CawgTrainingMining>(element.content)
+                    else -> null
+                }
             } catch (e: Exception) {
-                // handle exception if needed, for now just leave it null
+                null
             }
         }
 
@@ -211,3 +227,25 @@ fun String.toDecimalLongitude(): Double {
     return decimal
 }
 
+
+/**
+ * Renders a C2PA timestamp in the device's own time zone and locale.
+ *
+ * Timestamps in a manifest are UTC ISO-8601, written either with a `Z` suffix
+ * (`2026-10-30T03:22:39Z`, assertion metadata) or an explicit offset
+ * (`2026-10-30T03:18:48+00:00`, signature time). Both parse as an [OffsetDateTime].
+ *
+ * Returns null if the value is not a timestamp this understands, so callers can fall
+ * back to showing it verbatim rather than hiding it.
+ */
+fun String.toLocalizedDateTime(): String? = try {
+    OffsetDateTime.parse(this)
+        .atZoneSameInstant(ZoneId.systemDefault())
+        .format(
+            DateTimeFormatter
+                .ofLocalizedDateTime(FormatStyle.MEDIUM)
+                .withLocale(Locale.getDefault())
+        )
+} catch (e: DateTimeParseException) {
+    null
+}

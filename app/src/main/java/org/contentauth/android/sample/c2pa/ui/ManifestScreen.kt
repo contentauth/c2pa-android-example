@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.contentauth.android.sample.c2pa.data.Manifest
 import org.contentauth.android.sample.c2pa.data.extractMetadata
+import org.contentauth.android.sample.c2pa.data.toLocalizedDateTime
 import java.util.Locale
 
 @Composable
@@ -55,7 +56,7 @@ fun ManifestDetailsScreen(
         // DATE & TIME
         // ───────────────────────
         Text(
-            text = metadata.dateTime ?: "No date",
+            text = metadata.dateTime?.let { it.toLocalizedDateTime() ?: it } ?: "No date",
             style = MaterialTheme.typography.headlineSmall
         )
 
@@ -65,8 +66,9 @@ fun ManifestDetailsScreen(
         // MAP Libre LOCATION
         // ───────────────────────
         if (metadata.lat != null && metadata.lng != null) {
-            val latLng = org.maplibre.android.geometry.LatLng(metadata.lat, metadata.lng)
-            MapUI(latLng = latLng,
+            MapUI(
+                latitude = metadata.lat,
+                longitude = metadata.lng,
                 modifier = Modifier.fillMaxWidth()
                     .height(220.dp)
             )
@@ -123,6 +125,9 @@ fun ManifestDetailsScreen(
         InfoRow(label = "Algorithm", value = manifest.signatureInfo.alg)
         InfoRow(label = "Issuer", value = manifest.signatureInfo.issuer)
         InfoRow(label = "Serial Number", value = manifest.signatureInfo.certSerialNumber)
-        InfoRow(label = "Time", value = manifest.signatureInfo.time)
+        InfoRow(
+            label = "Time",
+            value = manifest.signatureInfo.time.let { it.toLocalizedDateTime() ?: it }
+        )
     }
 }
