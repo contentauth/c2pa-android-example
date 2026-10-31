@@ -39,21 +39,18 @@ fun ProofAppNavigation3() {
         entryProvider = {key->
             when(key) {
                 is AppDestination.Camera -> NavEntry(key) {
-                    CameraScreen(viewModel = cameraViewModel, onNavigateToPreview = {
-                        backStack.add(AppDestination.Preview)
-                    }, onNavigateToSettings = {
-                        backStack.add(AppDestination.Settings)
-                    })
+                    CameraScreen(
+                        viewModel = cameraViewModel,
+                        settingsViewModel = settingsViewModel,
+                        onNavigateToPreview = {
+                            backStack.add(AppDestination.Preview)
+                        }
+                    )
                 }
 
                 is AppDestination.Preview -> NavEntry(key) {
                     MediaPreview(viewModel = cameraViewModel, onNavigateBack = {
-                        //backStack.removeLastOrNull()
-                    })
-                }
-                is AppDestination.Settings -> NavEntry(key) {
-                    SettingsScreen(viewModel = settingsViewModel, onNavigateBack = {
-                        //backStack.removeLastOrNull()
+                        backStack.removeLastOrNull()
                     })
                 }
             }
@@ -71,9 +68,6 @@ sealed class AppDestination: NavKey {
     object Camera: AppDestination(), NavKey
     @Serializable
     object Preview: AppDestination()
-    @Serializable
-    object Settings: AppDestination()
-
 }
 
 

@@ -6,8 +6,9 @@ import android.Manifest
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -23,12 +24,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -103,13 +103,15 @@ class SettingsViewModel @Inject constructor(
         }
     }
 }
-
+    /**
+     * The settings rows with no screen chrome, so they can be hosted in a modal bottom
+     * sheet over the live camera preview rather than on a screen of their own.
+     */
     @OptIn(ExperimentalPermissionsApi::class)
     @Composable
-    fun SettingsScreen(
+    fun SettingsSheetContent(
         viewModel: SettingsViewModel = viewModel(),
-        modifier: Modifier = Modifier,
-        onNavigateBack: (() -> Unit)? = null
+        modifier: Modifier = Modifier
     ) {
         val currentName by viewModel.userName.collectAsStateWithLifecycle()
         val currentEmail by viewModel.userEmail.collectAsStateWithLifecycle()
@@ -128,81 +130,78 @@ class SettingsViewModel @Inject constructor(
             }
         }
 
-        /*BackHandler(enabled = true) {
-            onNavigateBack?.invoke()
-        }*/
-
-        Scaffold(topBar = {
-            TopAppBar(title = {
-                Text(stringResource(R.string.settings))
-            })
-        }) { padding ->
-            Column(
-                modifier = modifier
-                    .padding(padding)
-                    .fillMaxSize(),
-            ) {
-                HorizontalDivider()
-                EditableSettingRow(
-                    label = stringResource(R.string.name),
-                    value = currentName,
-                    onSave = viewModel::saveUserName,
-                    leadingIcon = Icons.Default.Person,
-                    contentDescription = stringResource(R.string.user_name)
-                )
-                HorizontalDivider()
-                EditableSettingRow(
-                    label = "Email",
-                    value = currentEmail,
-                    onSave = viewModel::saveUserEmail,
-                    leadingIcon = Icons.Default.Email,
-                    contentDescription = stringResource(R.string.user_email)
-                )
-                HorizontalDivider()
-                SwitchSettingRow(
-                    label = stringResource(R.string.enable_location),
-                    isChecked = isLocationEnabled,
-                    onCheckedChange = { shouldBeEnabled ->
-                        if (shouldBeEnabled) {
-                            if (locationPermissionsState.allPermissionsGranted) {
-                                viewModel.saveLocationSharing(true)
-                            } else {
-                                if (locationPermissionsState.shouldShowRationale) {
-                                    showRationaleDialog = true
-                                } else {
-                                    locationPermissionsState.launchMultiplePermissionRequest()
-                                }
-                            }
+        Column(
+            // Wraps its content so the sheet settles at partial height, and scrolls if the
+            // rows outgrow it at large font scales or on short screens.
+            modifier = modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Text(
+                text = stringResource(R.string.settings),
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+            )
+            HorizontalDivider()
+            EditableSettingRow(
+                label = stringResource(R.string.name),
+                value = currentName,
+                onSave = viewModel::saveUserName,
+                leadingIcon = Icons.Default.Person,
+                contentDescription = stringResource(R.string.user_name)
+            )
+            HorizontalDivider()
+            EditableSettingRow(
+                label = "Email",
+                value = currentEmail,
+                onSave = viewModel::saveUserEmail,
+                leadingIcon = Icons.Default.Email,
+                contentDescription = stringResource(R.string.user_email)
+            )
+            HorizontalDivider()
+            SwitchSettingRow(
+                label = stringResource(R.string.enable_location),
+                isChecked = isLocationEnabled,
+                onCheckedChange = { shouldBeEnabled ->
+                    if (shouldBeEnabled) {
+                        if (locationPermissionsState.allPermissionsGranted) {
+                            viewModel.saveLocationSharing(true)
                         } else {
-                            viewModel.saveLocationSharing(false)
+                            if (locationPermissionsState.shouldShowRationale) {
+                                showRationaleDialog = true
+                            } else {
+                                locationPermissionsState.launchMultiplePermissionRequest()
+                            }
                         }
-                    },
-                    leadingIcon = Icons.Outlined.ShareLocation,
-                    contentDescription = stringResource(R.string.toggle_sharing_location)
-                )
-                HorizontalDivider()
+                    } else {
+                        viewModel.saveLocationSharing(false)
+                    }
+                },
+                leadingIcon = Icons.Outlined.ShareLocation,
+                contentDescription = stringResource(R.string.toggle_sharing_location)
+            )
+            HorizontalDivider()
 
-                SwitchSettingRow(
-                    label = "Allow AI training",
-                    supportingText = stringResource(R.string.ai_traing_description),
-                    isChecked = isAITrainingAllowed,
-                    onCheckedChange = {
-                        viewModel.saveAITraining(it)
-                    }, leadingIcon = Icons.Default.ModelTraining,
-                    contentDescription = stringResource(R.string.ai_traing_description)
-                )
-                HorizontalDivider()
-            }
+            SwitchSettingRow(
+                label = "Allow AI training",
+                supportingText = stringResource(R.string.ai_traing_description),
+                isChecked = isAITrainingAllowed,
+                onCheckedChange = {
+                    viewModel.saveAITraining(it)
+                }, leadingIcon = Icons.Default.ModelTraining,
+                contentDescription = stringResource(R.string.ai_traing_description)
+            )
+            HorizontalDivider()
+        }
 
-            if (showRationaleDialog) {
-                LocationPermissionRationaleDialog(
-                    onConfirm = {
-                        showRationaleDialog = false
-                        locationPermissionsState.launchMultiplePermissionRequest()
-                    },
-                    onDismiss = { showRationaleDialog = false }
-                )
-            }
+        if (showRationaleDialog) {
+            LocationPermissionRationaleDialog(
+                onConfirm = {
+                    showRationaleDialog = false
+                    locationPermissionsState.launchMultiplePermissionRequest()
+                },
+                onDismiss = { showRationaleDialog = false }
+            )
         }
     }
 

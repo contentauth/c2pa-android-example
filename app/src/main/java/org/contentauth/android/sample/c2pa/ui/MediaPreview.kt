@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -78,14 +79,13 @@ fun MediaPreview(viewModel: CameraViewModel, modifier: Modifier = Modifier,
 
 
 
-    /*BackHandler(enabled = onNavigateBack != null) {
+    BackHandler(enabled = onNavigateBack != null) {
         onNavigateBack?.invoke()
-
-    }*/
+    }
     Scaffold(modifier = modifier.fillMaxSize(), topBar = {
         TopAppBar(title = {}, navigationIcon = {
             IconButton(onClick = {
-                //onNavigateBack?.invoke()
+                onNavigateBack?.invoke()
             }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
             }
