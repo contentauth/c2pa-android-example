@@ -9,9 +9,6 @@ pluginManagement {
         }
         mavenCentral()
         gradlePluginPortal()
-        flatDir {
-            dirs("libs")
-        }
     }
 }
 dependencyResolutionManagement {
@@ -19,9 +16,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        flatDir {
-            dirs("app/libs")
-        }
+        // c2pa-android is published here; see https://github.com/contentauth/c2pa-android
+        maven { url = uri("https://jitpack.io") }
     }
 }
 

@@ -23,16 +23,7 @@ import org.contentauth.c2pa.Signer
 import org.contentauth.c2pa.SigningAlgorithm
 import org.contentauth.c2pa.Stream
 import org.contentauth.c2pa.StrongBoxSigner
-import org.contentauth.c2pa.manifest.Action
-import org.contentauth.c2pa.manifest.AttestationBuilder
-import org.contentauth.c2pa.manifest.C2PAActions
-import org.contentauth.c2pa.manifest.C2PAFormats
-import org.contentauth.c2pa.manifest.C2PARelationships
-import org.contentauth.c2pa.manifest.DigitalSourceTypes
-import org.contentauth.c2pa.manifest.Ingredient
-import org.contentauth.c2pa.manifest.ManifestBuilder
-import org.contentauth.c2pa.manifest.SoftwareAgent
-import org.contentauth.c2pa.manifest.TimestampAuthorities
+import org.json.JSONArray
 import org.json.JSONObject
 import org.contentauth.android.sample.c2pa.c2pa_signing.selfsign.CertificateSigningService
 import timber.log.Timber
@@ -48,6 +39,7 @@ import java.security.spec.PKCS8EncodedKeySpec
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 import java.util.TimeZone
 import javax.crypto.Cipher
 import javax.inject.Inject
@@ -77,6 +69,26 @@ class C2PAManager @Inject constructor (private val context: Context, private val
         private const val TAG = "C2PAManager"
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val KEYSTORE_ALIAS_PREFIX = "C2PA_KEY_"
+
+        /**
+         * C2PA vocabulary used when building the manifest JSON. These were previously
+         * supplied by the vendored AAR's `org.contentauth.c2pa.manifest` helper objects,
+         * which are not part of the published c2pa-android library.
+         */
+        const val TSA_DIGICERT = "http://timestamp.digicert.com"
+
+        private const val LABEL_ACTIONS = "c2pa.actions"
+        private const val LABEL_CREATIVE_WORK = "c2pa.creative_work"
+        private const val LABEL_ASSERTION_METADATA = "c2pa.assertion.metadata"
+
+        private const val ACTION_CREATED = "c2pa.created"
+        private const val ACTION_PLACED = "c2pa.placed"
+
+        private const val DIGITAL_SOURCE_TYPE_DIGITAL_CAPTURE =
+            "http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture"
+
+        private const val RELATIONSHIP_PARENT_OF = "parentOf"
+        private const val FORMAT_JPEG = "image/jpeg"
 
         private val iso8601 = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
@@ -131,7 +143,7 @@ class C2PAManager @Inject constructor (private val context: Context, private val
 
             // Create appropriate signer based on mode
             if (!::defaultSigner.isInitialized)
-                defaultSigner = createSigner(signingMode, TimestampAuthorities.DIGICERT)
+                defaultSigner = createSigner(signingMode, TSA_DIGICERT)
 
             val fileStream = FileStream(tempSourceFile)
             val outStream = FileStream(tempSignedFile)
@@ -529,6 +541,13 @@ class C2PAManager @Inject constructor (private val context: Context, private val
         }
     }
 
+    /**
+     * Builds the C2PA manifest JSON that is signed into the asset.
+     *
+     * The JSON is assembled directly with [JSONObject] (the approach the upstream
+     * c2pa-android example app uses) and handed to `Builder.fromJson`. The shape is
+     * unchanged from the previously vendored AAR's manifest builder.
+     */
     private fun createManifestJSON(context: Context, creator: String,creatorIdentifier:String? = null, fileName: String, contentType: String, location: Location?, isDirectCapture: Boolean,
                                    allowAITraining: Boolean = false): String {
 
@@ -537,95 +556,108 @@ class C2PAManager @Inject constructor (private val context: Context, private val
         val appLabel = getAppName(context)
         val appVersion = getAppVersionName(context)
 
-        val softwareAgent = SoftwareAgent("$appLabel $appVersion", Build.VERSION.SDK_INT.toString(), Build.VERSION.CODENAME)
-
         val currentTs = iso8601.format(Date())
-        val thumbnailId = "$fileName-thumb.jpg"
 
-        val mb = ManifestBuilder()
-        mb.claimGenerator(appLabel, version = appVersion)
-        mb.timestampAuthorityUrl(TimestampAuthorities.DIGICERT)
-      //  mb.timestampAuthorityUrl(TSA_SSL_COM)
-        mb.title(fileName)
-        mb.format(contentType)
-        //   mb.addThumbnail(Thumbnail(C2PAFormats.JPEG, thumbnailId))
-
-        val sAgent = SoftwareAgent(appLabel, appVersion, Build.PRODUCT)
-        val prettyJson = Json { prettyPrint = true }
-
-        mb.addAssertion(aiTrainingAssertion.label,prettyJson.encodeToString(aiTrainingAssertion.data))
-
-        if (isDirectCapture)
-        {
-            //add created
-            mb.addAction(Action(C2PAActions.CREATED, currentTs, softwareAgent, digitalSourceType = DigitalSourceTypes.DIGITAL_CAPTURE))
-        }
-        else
-        {
-            //add placed
-            mb.addAction(Action(C2PAActions.PLACED, currentTs, softwareAgent))
-
+        // name/version/operating_system, matching the previous SoftwareAgent serialization.
+        val softwareAgent = JSONObject().apply {
+            put("name", "$appLabel $appVersion")
+            put("version", Build.VERSION.SDK_INT.toString())
+            put("operating_system", Build.VERSION.CODENAME)
         }
 
-        val ingredient = Ingredient(
-            title = fileName,
-            format = C2PAFormats.JPEG,
-            relationship = C2PARelationships.PARENT_OF,
-            //thumbnail = Thumbnail(C2PAFormats.JPEG, thumbnailId)
+        val assertions = JSONArray()
+
+        // c2pa.actions
+        val action = JSONObject().apply {
+            put("action", if (isDirectCapture) ACTION_CREATED else ACTION_PLACED)
+            put("when", currentTs)
+            put("softwareAgent", softwareAgent)
+            if (isDirectCapture) put("digitalSourceType", DIGITAL_SOURCE_TYPE_DIGITAL_CAPTURE)
+        }
+        assertions.put(
+            JSONObject().apply {
+                put("label", LABEL_ACTIONS)
+                put("data", JSONObject().apply { put("actions", JSONArray().put(action)) })
+            }
         )
 
-        mb.addIngredient(ingredient)
+        // cawg.training-mining. The data stays a JSON *string*, as the previous
+        // manifest builder emitted it; see note in the migration summary.
+        assertions.put(
+            JSONObject().apply {
+                put("label", aiTrainingAssertion.label)
+                // Must be a JSON object, not a JSON-encoded string, so that other
+                // C2PA readers can interpret the CAWG training/mining entries.
+                put("data", JSONObject(Json.encodeToString(aiTrainingAssertion.data)))
+            }
+        )
 
-        val attestationBuilder = AttestationBuilder()
-
-        attestationBuilder.addCreativeWork {
-            addAuthor(creator, identifier = creatorIdentifier)
-            dateCreated(Date())
+        // c2pa.creative_work
+        val author = JSONObject().apply {
+            put("name", creator)
+            creatorIdentifier?.let { put("@id", it) }
         }
-        if (location  != null) {
-            val exifLat = getLatitudeAsDMS(location, 3)
-            val exifLong = getLongitudeAsDMS(location, 3)
+        assertions.put(
+            JSONObject().apply {
+                put("label", LABEL_CREATIVE_WORK)
+                put(
+                    "data",
+                    JSONObject().apply {
+                        put("author", JSONArray().put(author))
+                        put("dateCreated", currentTs)
+                    }
+                )
+            }
+        )
 
+        // c2pa.assertion.metadata, only when the capture carries a location.
+        if (location != null) {
             val locationJson = JSONObject().apply {
                 put("@type", "Place")
-                put("latitude", exifLat)
-                put("longitude", exifLong)
-                //    put("name", "Somewhere")
+                put("latitude", getLatitudeAsDMS(location, 3))
+                put("longitude", getLongitudeAsDMS(location, 3))
             }
-
-            attestationBuilder.addAssertionMetadata {
-                dateTime(currentTs)
-                location(locationJson)
-            }
-
-
+            assertions.put(
+                JSONObject().apply {
+                    put("label", LABEL_ASSERTION_METADATA)
+                    put(
+                        "data",
+                        JSONObject().apply {
+                            put("dateTime", currentTs)
+                            put("location", locationJson)
+                        }
+                    )
+                }
+            )
         }
 
-
-
-        /**
-        val customAttestationJson = JSONObject().apply {
-        put("@type", "Integrity")
-        put("nonce", "something")
-        put("response", "b64encodedresponse")
+        val ingredient = JSONObject().apply {
+            put("title", fileName)
+            put("format", FORMAT_JPEG)
+            put("instanceID", UUID.randomUUID().toString())
+            put("relationship", RELATIONSHIP_PARENT_OF)
         }
 
-        attestationBuilder.addCustomAttestation("app.integrity", customAttestationJson)
-
-        attestationBuilder.addCAWGIdentity {
-            validFromNow()
-            addSocialMediaIdentity(pgpFingerprint, webLink, currentTs, appLabel, appLabel)
+        val manifest = JSONObject().apply {
+            put("claim_version", 1)
+            put("ta_url", TSA_DIGICERT)
+            put("format", contentType)
+            put("title", fileName)
+            put("instanceID", UUID.randomUUID().toString())
+            put(
+                "claim_generator_info",
+                JSONArray().put(
+                    JSONObject().apply {
+                        put("name", appLabel)
+                        put("version", appVersion)
+                    }
+                )
+            )
+            put("ingredients", JSONArray().put(ingredient))
+            put("assertions", assertions)
         }
-         **/
 
-
-
-        attestationBuilder.buildForManifest(mb)
-
-        val manifestJson = mb.buildJson()
-
-
-        return manifestJson
+        return manifest.toString()
     }
 
     private fun verifySignedImage(imageData: ByteArray) {
@@ -635,7 +667,7 @@ class C2PAManager @Inject constructor (private val context: Context, private val
             tempFile.writeBytes(imageData)
 
             // Read and verify using C2PA
-            val manifestJSON = C2PA.readFile(tempFile.absolutePath, null)
+            val manifestJSON = C2PA.readFile(tempFile.absolutePath)
 
             Timber.tag(TAG).d("C2PA VERIFICATION SUCCESS")
             Timber.tag(TAG).d("Manifest JSON length: ${manifestJSON.length} characters")

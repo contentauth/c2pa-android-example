@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
@@ -9,12 +8,12 @@ plugins {
 
 android {
     namespace = "org.contentauth.android.sample.c2pa"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "org.contentauth.android.sample.c2pa"
         minSdk = 28
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
@@ -36,18 +35,15 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
-        }
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
     }
     packaging {
         resources.excludes.add("META-INF/versions/9/OSGI-INF/MANIFEST.MF")
+        // Bouncy Castle 1.86+ ships these in bcprov, bcpkix and bcutil alike.
+        resources.excludes.add("META-INF/LICENSE.md")
+        resources.excludes.add("META-INF/NOTICE.md")
     }
 }
 
@@ -78,7 +74,7 @@ dependencies {
     implementation(libs.coil)
     implementation(libs.coil.video)
     implementation(libs.coil.kt.coil.compose)
-    //implementation(libs.c2pa)
+
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
@@ -87,12 +83,13 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.play.services.location)
     implementation(libs.timber)
-    implementation(files("libs/c2pa-release.aar"))
+    implementation(libs.c2pa)
     implementation(libs.bcprov.jdk18on)
     implementation(libs.bcpkix.jdk18on)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.exifinterface)
     implementation(libs.maplibre.compose)
+    runtimeOnly(libs.maplibre.native.ffi.runtime.opengl)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

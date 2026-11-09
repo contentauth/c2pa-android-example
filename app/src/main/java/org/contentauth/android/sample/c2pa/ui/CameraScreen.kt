@@ -39,6 +39,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +50,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,13 +79,28 @@ private val permissions = mutableListOf(
     }
 }
 
-@OptIn(ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun CameraScreen(viewModel: CameraViewModel,modifier: Modifier = Modifier,
-                 onNavigateToPreview: () -> Unit,
-                 onNavigateToSettings: () -> Unit) {
+fun CameraScreen(viewModel: CameraViewModel,
+                 settingsViewModel: SettingsViewModel,
+                 modifier: Modifier = Modifier,
+                 onNavigateToPreview: () -> Unit) {
     val permissionsState = rememberMultiplePermissionsState(permissions)
     var showRationaleDialog by remember { mutableStateOf(false) }
+
+    // Settings open as a sheet over the preview rather than as their own destination, so
+    // the camera is never unbound and re-bound just to change a setting.
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    val settingsSheetState = rememberModalBottomSheetState()
+
+    if (showSettings) {
+        ModalBottomSheet(
+            onDismissRequest = { showSettings = false },
+            sheetState = settingsSheetState
+        ) {
+            SettingsSheetContent(viewModel = settingsViewModel)
+        }
+    }
 
     val requiredPermissions = listOfNotNull(
         Manifest.permission.CAMERA,
@@ -112,7 +131,7 @@ fun CameraScreen(viewModel: CameraViewModel,modifier: Modifier = Modifier,
                 CameraCaptureScreen(viewModel,
                     onNavigateToPreview = onNavigateToPreview,
                     paddingValues = paddingValues,
-                    onNavigateToSettings = onNavigateToSettings)
+                    onNavigateToSettings = { showSettings = true })
             }
 
             else -> {

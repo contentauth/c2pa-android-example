@@ -1,43 +1,44 @@
 [versions]
 accompanistPermissions = "0.37.3"
-agp = "8.11.2"
-bcprovJdk18on = "1.82"
-c2pa = "0.0.7"
-cameraxVersion = "1.5.1"
-coil = "2.2.2"
+agp = "9.4.0"
+bcprovJdk18on = "1.86"
+c2pa = "0.0.17"
+cameraxVersion = "1.6.2"
+coil = "2.7.0"
 coilCompose = "2.7.0"
 coilVideo = "2.7.0"
-constraintlayoutCompose = "1.1.1"
-datastorePreferences = "1.1.7"
-exifinterface = "1.4.1"
-kotlin = "2.2.20"
-ksp = "2.2.20-2.0.4"
-coreKtx = "1.17.0"
+constraintlayoutCompose = "1.1.2"
+datastorePreferences = "1.3.0"
+exifinterface = "1.4.2"
+kotlin = "2.4.21"
+ksp = "2.3.12"
+coreKtx = "1.19.1"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
-lifecycleRuntimeKtx = "2.9.3"
-activityCompose = "1.10.1"
-composeBom = "2024.09.00"
-lifecycleViewmodelCompose = "2.9.4"
+lifecycleRuntimeKtx = "2.11.0"
+activityCompose = "1.13.0"
+composeBom = "2026.09.00"
+lifecycleViewmodelCompose = "2.11.0"
 materialIconsExtended = "1.7.8"
-navigationCompose = "2.9.5"
-hilt = "2.57.2"
-hiltNavigationCompose = "1.3.0"
-kotlinxSerialization = "1.9.0"
-playServicesLocation = "21.3.0"
+navigationCompose = "2.10.2"
+hilt = "2.60.1"
+hiltNavigationCompose = "1.4.0"
+kotlinxSerialization = "1.12.0"
+playServicesLocation = "21.4.0"
 timber = "5.0.1"
-mockito = "5.20.0"
+mockito = "5.24.0"
 mockiton-inline = "5.2.0"
-mockitoKt = "5.3.1"
+mockitoKt = "6.4.0"
 secretsGradlePlugin = "2.0.1"
 
-nav3Core = "1.0.0"
-lifecycleViewmodelNav3 = "2.10.0"
+nav3Core = "1.2.0"
+lifecycleViewmodelNav3 = "2.11.0"
 kotlinSerialization = "2.1.21"
 kotlinxSerializationCore = "1.8.1"
-material3AdaptiveNav3 = "1.3.0-alpha04"
-mapLibre = "0.12.1"
+material3AdaptiveNav3 = "1.3.0"
+mapLibre = "0.20.0"
+mapLibreNativeFfi = "0.202610.0"
 
 
 [libraries]
@@ -57,6 +58,7 @@ androidx-material-icons-extended = { module = "androidx.compose.material:materia
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 bcpkix-jdk18on = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bcprovJdk18on" }
 bcprov-jdk18on = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bcprovJdk18on" }
+c2pa = { module = "com.github.contentauth:c2pa-android", version.ref = "c2pa" }
 coil = { module = "io.coil-kt:coil", version.ref = "coil" }
 coil-kt-coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 coil-video = { module = "io.coil-kt:coil-video", version.ref = "coilVideo" }
@@ -66,6 +68,8 @@ hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", ve
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
 maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.ref = "mapLibre" }
+# Renderer runtime: supplies libmaplibre-native-c.so, which maplibre-compose does not bundle.
+maplibre-native-ffi-runtime-opengl = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-opengl", version.ref = "mapLibreNativeFfi" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
 
 # Core Navigation 3 libraries
@@ -97,7 +101,6 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
